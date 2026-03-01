@@ -1,0 +1,4 @@
+# Dynamic Pathfinding Agent - dependencies
+# Python 3.8+
+
+pygame>=2.5.0
