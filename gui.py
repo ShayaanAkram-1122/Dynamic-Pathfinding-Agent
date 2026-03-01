@@ -109,8 +109,8 @@ class PathfindingGUI:
         x, y = 8, 8
         bh = 28
         self._buttons = []
-        # Row 1: Run, Pause, Restart, Random maze
-        for w, bid, label in [(52, "run", "Run"), (52, "pause", "Pause"), (58, "restart", "Restart"), (92, "maze", "Random Maze")]:
+        # Row 1: Run, Pause, Restart, Reset Maze
+        for w, bid, label in [(52, "run", "Run"), (52, "pause", "Pause"), (58, "restart", "Restart"), (88, "reset_maze", "Reset Maze")]:
             r = pygame.Rect(x, y, w, bh)
             self._buttons.append((r, bid, label))
             x += w + 6
@@ -155,8 +155,8 @@ class PathfindingGUI:
             self.heuristic = "manhattan"
         elif bid == "heur_euclidean":
             self.heuristic = "euclidean"
-        elif bid == "maze":
-            self.grid.generate_random_maze(self.obstacle_density)
+        elif bid == "reset_maze":
+            self.grid.reset_maze()
             self.agent = Agent(self.grid)
             self.path = []
             self.frontier_set = set()
