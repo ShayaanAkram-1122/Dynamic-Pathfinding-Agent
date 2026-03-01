@@ -109,8 +109,8 @@ class PathfindingGUI:
         x, y = 8, 8
         bh = 28
         self._buttons = []
-        # Row 1: Run, Pause, Restart
-        for w, bid, label in [(52, "run", "Run"), (52, "pause", "Pause"), (58, "restart", "Restart")]:
+        # Row 1: Run, Pause, Restart, Random maze
+        for w, bid, label in [(52, "run", "Run"), (52, "pause", "Pause"), (58, "restart", "Restart"), (92, "maze", "Random Maze")]:
             r = pygame.Rect(x, y, w, bh)
             self._buttons.append((r, bid, label))
             x += w + 6
@@ -155,6 +155,13 @@ class PathfindingGUI:
             self.heuristic = "manhattan"
         elif bid == "heur_euclidean":
             self.heuristic = "euclidean"
+        elif bid == "maze":
+            self.grid.generate_random_maze(self.obstacle_density)
+            self.agent = Agent(self.grid)
+            self.path = []
+            self.frontier_set = set()
+            self.visited_set = set()
+            self.paused = False
 
     def _do_restart(self) -> None:
         """Reset grid view and agent to start; keep walls and algorithm."""
@@ -265,6 +272,12 @@ class PathfindingGUI:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
+                    elif event.key == pygame.K_g:
+                        self.grid.generate_random_maze(self.obstacle_density)
+                        self.agent = Agent(self.grid)
+                        self.path = []
+                        self.frontier_set = set()
+                        self.visited_set = set()
                     elif event.key == pygame.K_SPACE:
                         self.editing = False
                         self._run_search_animation()
