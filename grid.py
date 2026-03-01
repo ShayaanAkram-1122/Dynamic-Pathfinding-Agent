@@ -89,12 +89,6 @@ class Grid:
                 if random.random() < obstacle_density:
                     self._grid[r][c].walkable = False
 
-    def reset_maze(self) -> None:
-        """Clear all walls and reset start/goal to default corners."""
-        self._start = (0, 0)
-        self._goal = (self.rows - 1, self.cols - 1)
-        self._build_grid()
-
     def reset_costs(self) -> None:
         """Reset g, h, parent on all nodes for a new search."""
         for row in self._grid:
