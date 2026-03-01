@@ -2,7 +2,7 @@
 GUI module: Pygame visualization for the pathfinding grid.
 - Draws grid, start (green), goal (red), walls, frontier (yellow), visited (red/blue), path (green).
 - Interactive editor: click to add/remove walls.
-- Algorithm & heuristic selection, metrics dashboard.
+- Buttons: Run, Pause, Restart; algorithm (Greedy BFS, A*); heuristic (Manhattan, Euclidean).
 """
 
 import pygame
@@ -15,16 +15,39 @@ from node import Node
 
 
 # Colors (RGB)
-COLOR_BG = (30, 30, 40)
-COLOR_GRID = (60, 60, 70)
-COLOR_START = (50, 205, 50)   # green
-COLOR_GOAL = (220, 50, 50)    # red
+COLOR_BG = (28, 28, 36)
+COLOR_GRID = (55, 55, 68)
+COLOR_START = (50, 205, 50)
+COLOR_GOAL = (220, 50, 50)
 COLOR_WALL = (50, 50, 60)
-COLOR_FRONTIER = (255, 255, 0)   # yellow
-COLOR_VISITED = (255, 100, 100)  # light red
-COLOR_PATH = (0, 200, 100)       # green path
-COLOR_AGENT = (0, 255, 200)      # cyan
-COLOR_TEXT = (240, 240, 240)
+COLOR_FRONTIER = (255, 255, 0)
+COLOR_VISITED = (255, 100, 100)
+COLOR_PATH = (0, 200, 100)
+COLOR_AGENT = (0, 255, 200)
+COLOR_TEXT = (240, 240, 245)
+COLOR_DASH = (38, 38, 48)
+COLOR_BTN = (65, 70, 90)
+COLOR_BTN_HOVER = (85, 92, 118)
+COLOR_BTN_ACTIVE = (95, 180, 120)
+COLOR_BTN_BORDER = (100, 105, 130)
+COLOR_CURRENT_LABEL = (180, 220, 255)
+
+
+def _draw_button(
+    screen: pygame.Surface,
+    rect: pygame.Rect,
+    label: str,
+    font: pygame.font.Font,
+    active: bool = False,
+    hover: bool = False,
+) -> None:
+    """Draw a rounded-rect button with label."""
+    color = COLOR_BTN_ACTIVE if active else (COLOR_BTN_HOVER if hover else COLOR_BTN)
+    pygame.draw.rect(screen, color, rect, border_radius=6)
+    pygame.draw.rect(screen, COLOR_BTN_BORDER, rect, 1, border_radius=6)
+    text = font.render(label, True, COLOR_TEXT)
+    tr = text.get_rect(center=rect.center)
+    screen.blit(text, tr)
 
 
 class PathfindingGUI:
@@ -44,8 +67,7 @@ class PathfindingGUI:
         self.obstacle_density = obstacle_density
         self.grid = Grid(rows, cols)
         self.agent = Agent(self.grid)
-        # UI area: reserve top for controls/metrics
-        self.dashboard_height = 80
+        self.dashboard_height = 100
         self.width = cols * cell_size
         self.height = rows * cell_size + self.dashboard_height
         self.screen = pygame.display.set_mode((self.width, self.height))
@@ -53,13 +75,18 @@ class PathfindingGUI:
         self.clock = pygame.time.Clock()
         # State
         self.editing = True
+        self.paused = False
         self.algorithm = "astar"
         self.heuristic = "manhattan"
         self.path: List[Node] = []
         self.frontier_set: Set[Tuple[int, int]] = set()
         self.visited_set: Set[Tuple[int, int]] = set()
         self.dynamic_mode = False
-        self.font = pygame.font.Font(None, 24)
+        self.font = pygame.font.Font(None, 22)
+        self.font_title = pygame.font.Font(None, 26)
+        # Button layout (rects for click detection)
+        self._buttons: List[Tuple[pygame.Rect, str, str]] = []  # (rect, id, label)
+        self._update_button_rects()
 
     def _cell_rect(self, row: int, col: int) -> pygame.Rect:
         """Screen rect for cell (row, col); grid starts below dashboard."""
@@ -76,6 +103,75 @@ class PathfindingGUI:
         if 0 <= row < self.rows and 0 <= col < self.cols:
             return (row, col)
         return None
+
+    def _update_button_rects(self) -> None:
+        """Define button rects (call when width changes)."""
+        x, y = 8, 8
+        bh = 28
+        self._buttons = []
+        # Row 1: Run, Pause, Restart, Random maze
+        for w, bid, label in [(52, "run", "Run"), (52, "pause", "Pause"), (58, "restart", "Restart"), (92, "maze", "Random Maze")]:
+            r = pygame.Rect(x, y, w, bh)
+            self._buttons.append((r, bid, label))
+            x += w + 6
+        x += 12
+        # Algorithm buttons
+        for w, bid, label in [(88, "algo_greedy", "Greedy BFS"), (36, "algo_astar", "A*")]:
+            r = pygame.Rect(x, y, w, bh)
+            self._buttons.append((r, bid, label))
+            x += w + 6
+        x += 10
+        # Current search label (display only — we draw separately)
+        # Row 2: Heuristic + metrics
+        y2 = 42
+        x2 = 8
+        for w, bid, label in [(78, "heur_manhattan", "Manhattan"), (72, "heur_euclidean", "Euclidean")]:
+            r = pygame.Rect(x2, y2, w, bh)
+            self._buttons.append((r, bid, label))
+            x2 += w + 6
+
+    def _button_at(self, pos: Tuple[int, int]) -> Optional[str]:
+        """Return button id if pos is inside a button, else None."""
+        for rect, bid, _ in self._buttons:
+            if rect.collidepoint(pos):
+                return bid
+        return None
+
+    def _handle_button(self, bid: str) -> None:
+        """Handle button click by id."""
+        if bid == "run":
+            self.editing = False
+            self.paused = False
+            self._run_search_animation()
+        elif bid == "pause":
+            self.paused = not self.paused
+        elif bid == "restart":
+            self._do_restart()
+        elif bid == "algo_greedy":
+            self.algorithm = "greedy"
+        elif bid == "algo_astar":
+            self.algorithm = "astar"
+        elif bid == "heur_manhattan":
+            self.heuristic = "manhattan"
+        elif bid == "heur_euclidean":
+            self.heuristic = "euclidean"
+        elif bid == "maze":
+            self.grid.generate_random_maze(self.obstacle_density)
+            self.agent = Agent(self.grid)
+            self.path = []
+            self.frontier_set = set()
+            self.visited_set = set()
+            self.paused = False
+
+    def _do_restart(self) -> None:
+        """Reset grid view and agent to start; keep walls and algorithm."""
+        self.grid.reset_costs()
+        sr, sc = self.grid.get_start()
+        self.agent = Agent(self.grid)
+        self.path = []
+        self.frontier_set = set()
+        self.visited_set = set()
+        self.paused = False
 
     def _draw_cell(self, row: int, col: int, color: Tuple[int, int, int]) -> None:
         r = self._cell_rect(row, col)
@@ -109,21 +205,40 @@ class PathfindingGUI:
         ar, ac = self.agent.current_position
         self._draw_cell(ar, ac, COLOR_AGENT)
 
-    def _draw_dashboard(self) -> None:
-        """Draw metrics and mode at top of screen."""
+    def _draw_dashboard(self, mouse_pos: Tuple[int, int]) -> None:
+        """Draw dashboard: buttons, current search label, metrics."""
         surf = pygame.Surface((self.width, self.dashboard_height))
-        surf.fill((40, 40, 50))
+        surf.fill(COLOR_DASH)
         self.screen.blit(surf, (0, 0))
+        # Separator line below dashboard
+        pygame.draw.line(self.screen, COLOR_GRID, (0, self.dashboard_height), (self.width, self.dashboard_height), 1)
+
+        # Draw buttons with hover/active state
+        for rect, bid, label in self._buttons:
+            active = (
+                (bid == "algo_greedy" and self.algorithm == "greedy")
+                or (bid == "algo_astar" and self.algorithm == "astar")
+                or (bid == "heur_manhattan" and self.heuristic == "manhattan")
+                or (bid == "heur_euclidean" and self.heuristic == "euclidean")
+            )
+            hover = rect.collidepoint(mouse_pos)
+            _draw_button(self.screen, rect, label, self.font, active=active, hover=hover)
+
+        # Current search label (right side of first row)
+        algo_display = "A*" if self.algorithm == "astar" else "Greedy BFS"
+        current_text = self.font_title.render(f"Current search: {algo_display}", True, COLOR_CURRENT_LABEL)
+        self.screen.blit(current_text, (self.width - current_text.get_width() - 12, 14))
+        # Heuristic subtitle
+        h_text = self.font.render(f"Heuristic: {self.heuristic}", True, (150, 160, 180))
+        self.screen.blit(h_text, (self.width - h_text.get_width() - 12, 38))
+
+        # Metrics (bottom row of dashboard)
         m = self.agent.get_metrics()
-        lines = [
-            f"Nodes visited: {m['nodes_visited']}  Path cost: {m['path_cost']:.1f}  Time: {m['execution_time_ms']:.1f} ms",
-            f"Algo: {self.algorithm}  Heuristic: {self.heuristic}  Edit: {'ON' if self.editing else 'OFF'}  Dynamic: {'ON' if self.dynamic_mode else 'OFF'}",
-        ]
-        y = 8
-        for line in lines:
-            text = self.font.render(line, True, COLOR_TEXT)
-            self.screen.blit(text, (8, y))
-            y += 28
+        metrics_text = self.font.render(
+            f"Nodes: {m['nodes_visited']}  |  Path cost: {m['path_cost']:.1f}  |  Time: {m['execution_time_ms']:.1f} ms",
+            True, COLOR_TEXT
+        )
+        self.screen.blit(metrics_text, (8, self.dashboard_height - 22))
 
     def _run_search_animation(self) -> None:
         """Run search step-by-step and redraw (stub: run sync and show result)."""
@@ -142,18 +257,21 @@ class PathfindingGUI:
         """Main loop: handle events and redraw."""
         running = True
         while running:
+            mouse_pos = pygame.mouse.get_pos()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    cell = self._cell_at_pos(*event.pos)
-                    if cell and self.editing:
-                        self.grid.toggle_wall(cell[0], cell[1])
+                    bid = self._button_at(event.pos)
+                    if bid:
+                        self._handle_button(bid)
+                    else:
+                        cell = self._cell_at_pos(*event.pos)
+                        if cell and self.editing:
+                            self.grid.toggle_wall(cell[0], cell[1])
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
-                    elif event.key == pygame.K_e:
-                        self.editing = not self.editing
                     elif event.key == pygame.K_g:
                         self.grid.generate_random_maze(self.obstacle_density)
                         self.agent = Agent(self.grid)
@@ -163,16 +281,12 @@ class PathfindingGUI:
                     elif event.key == pygame.K_SPACE:
                         self.editing = False
                         self._run_search_animation()
-                    elif event.key == pygame.K_1:
-                        self.algorithm = "greedy"
-                    elif event.key == pygame.K_2:
-                        self.algorithm = "astar"
-                    elif event.key == pygame.K_h:
-                        self.heuristic = "euclidean" if self.heuristic == "manhattan" else "manhattan"
+                    elif event.key == pygame.K_e:
+                        self.editing = not self.editing
 
             self.screen.fill(COLOR_BG)
             self._draw_grid()
-            self._draw_dashboard()
+            self._draw_dashboard(mouse_pos)
             pygame.display.flip()
             self.clock.tick(30)
         pygame.quit()
