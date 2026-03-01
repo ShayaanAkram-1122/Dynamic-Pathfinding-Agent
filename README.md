@@ -29,16 +29,3 @@ A Python GUI application for grid-based pathfinding with multiple search algorit
 pip install -r requirements.txt
 python main.py
 ```
-
-## Suggested commit order (for incremental history)
-
-1. **Project setup** — `requirements.txt`, `README.md`, `.gitignore`
-2. **Node module** — `node.py`
-3. **Grid module** — `grid.py`
-4. **Search algorithms** — `search.py` (Greedy BFS, A*, heuristics)
-5. **Agent module** — `agent.py`
-6. **GUI and main** — `gui.py`, `main.py`
-7. **Real-time search animation** — animate frontier/visited step-by-step in GUI
-8. **Metrics dashboard** — polish and layout
-9. **Dynamic mode** — spawn obstacles during movement, re-plan when blocked
-10. **Algorithm/heuristic selector** — dropdowns or buttons in GUI
